@@ -1,18 +1,17 @@
-import json
 import os
 from typing import Optional
 from uuid import UUID
 
 import jwt
-from fastapi import (APIRouter, Depends, File, Form, HTTPException, Query,
-                     UploadFile, status)
+from fastapi import (APIRouter, BackgroundTasks, Depends, File, Form,
+                     HTTPException, Query, UploadFile, status)
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .schemas import (ReportCreateSchema, ReportResponseSchema, ReportStatus,
-                      ReportUpdateSchema, TestSchema)
-from .services import (add_report_service, delete_report_service,
-                       get_all_my_reports_service, get_report_by_id_service,
-                       update_report_service)
+                      ReportUpdateSchema)
+from .services import (_extract_and_update, add_report_service,
+                       delete_report_service, get_all_my_reports_service,
+                       get_report_by_id_service, update_report_service)
 
 bearer_scheme = HTTPBearer()
 
@@ -51,36 +50,25 @@ router = APIRouter(prefix="/api/reports", tags=["Reports"])
     status_code=status.HTTP_201_CREATED,
 )
 async def add_report(
+    background_tasks: BackgroundTasks,
     patient_id: str = Form(...),
     patient_name: str = Form(...),
-    tests: str = Form(
-        ...,
-        description='JSON: [{"name":"","result":"","unit":"","reference_range":""}]',
-    ),
-    doctor: str = Form(...),
-    lab_no: str = Form(...),
-    report_status: str = Form("pending"),
     file: UploadFile = File(..., description="Lab report PDF or image"),
     current_user: UUID = Depends(get_current_user),
 ):
-    try:
-        tests_list = [TestSchema(**t) for t in json.loads(tests)]
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="'tests' must be a valid JSON array.",
-        )
-
     payload = ReportCreateSchema(
         patient_id=UUID(patient_id),
         patient_name=patient_name,
-        tests=tests_list,
-        doctor=doctor,
-        lab_no=lab_no,
-        status=ReportStatus(report_status),
     )
 
-    return await add_report_service(payload, file, current_user)
+    response, file_bytes, media_type = await add_report_service(
+        payload, file, current_user
+    )
+
+    # Fire-and-forget: extract medical data and patch the DB record
+    background_tasks.add_task(_extract_and_update, response.id, file_bytes, media_type)
+
+    return response
 
 
 # GET /api/reports/{report_id}
@@ -96,7 +84,7 @@ def get_report_by_id(
 @router.get("/", response_model=list[ReportResponseSchema])
 def get_all_my_reports(
     report_status: Optional[ReportStatus] = Query(
-        None, alias="status", description="pending | reviewed | archived"
+        None, alias="status", description="processing | pending | reviewed | archived"
     ),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -122,4 +110,3 @@ def delete_report(
     current_user: UUID = Depends(get_current_user),
 ):
     return delete_report_service(report_id, current_user)
-
