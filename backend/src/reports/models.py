@@ -2,11 +2,13 @@ from datetime import datetime
 from typing import List
 from uuid import UUID, uuid4
 
+
 class Test:
     name: str
     result: str
     unit: str
     reference_range: str
+
 
 class Report:
     id: UUID

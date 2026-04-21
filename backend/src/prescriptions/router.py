@@ -1,37 +1,31 @@
 import json
+import os
 from typing import Optional
 from uuid import UUID
 
-from fastapi import (APIRouter, Depends, File, Form, HTTPException,
-                     Query, UploadFile, status)
+import jwt
+from fastapi import (APIRouter, Depends, File, Form, HTTPException, Query,
+                     UploadFile, status)
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from .schemas import (
-    MedicineSchema,
-    PrescriptionCreateSchema,
-    PrescriptionResponseSchema,
-    PrescriptionStatus,
-    PrescriptionUpdateSchema,
-)
-from .services import (
-    add_prescription_service,
-    delete_prescription_service,
-    get_all_my_prescriptions_service,
-    get_prescription_by_id_service,
-    update_prescription_service,
-)
+from .schemas import (MedicineSchema, PrescriptionCreateSchema,
+                      PrescriptionResponseSchema, PrescriptionStatus,
+                      PrescriptionUpdateSchema)
+from .services import (add_prescription_service, delete_prescription_service,
+                       get_all_my_prescriptions_service,
+                       get_prescription_by_id_service,
+                       update_prescription_service)
 
 # ── JWT dependency ───────────────────────────────────────────────────────────────
 # Replace the body of get_current_user with your actual JWT decode logic.
 # The function must return the UUID that maps to patient_id in the DB.
 
-import jwt
-import os
 
 bearer_scheme = HTTPBearer()
 
-JWT_SECRET=os.getenv("JWT_SECRET")
-JWT_ALGORITHM=os.getenv("JWT_ALGORITHM")
+JWT_SECRET = os.getenv("JWT_SECRET")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
+
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
@@ -41,7 +35,7 @@ async def get_current_user(
     Raises 401 if the token is missing, expired, or invalid.
     """
     try:
-        token   = credentials.credentials
+        token = credentials.credentials
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_id = payload.get("sub")
         if not user_id:
@@ -69,16 +63,16 @@ router = APIRouter(prefix="/api/prescriptions", tags=["Prescriptions"])
 )
 async def add_prescription(
     # ── multipart form fields ──────────────────────────────────────────────
-    patient_id:          str           = Form(..., description="UUID of the patient"),
-    patient_name:        str           = Form(...),
-    disease_date:        str           = Form(..., description="Format: YYYY-MM-DD"),
-    medications:         str           = Form(..., description='JSON array: [{"name":"...","dose":"...","frequency":"..."}]'),
-    doctors_remark:      Optional[str] = Form(None),
-    prescription_status: str           = Form("new"),
-
+    patient_id: str = Form(..., description="UUID of the patient"),
+    patient_name: str = Form(...),
+    disease_date: str = Form(..., description="Format: YYYY-MM-DD"),
+    medications: str = Form(
+        ..., description='JSON array: [{"name":"...","dose":"...","frequency":"..."}]'
+    ),
+    doctors_remark: Optional[str] = Form(None),
+    prescription_status: str = Form("new"),
     # ── file ───────────────────────────────────────────────────────────────
     file: UploadFile = File(..., description="Prescription image or PDF"),
-
     # ── auth ───────────────────────────────────────────────────────────────
     current_user: UUID = Depends(get_current_user),
 ):
@@ -132,7 +126,7 @@ async def get_all_my_prescriptions(
         alias="status",
         description="Filter by status: active | expired | new",
     ),
-    skip:  int = Query(0,  ge=0,        description="Records to skip (pagination)"),
+    skip: int = Query(0, ge=0, description="Records to skip (pagination)"),
     limit: int = Query(20, ge=1, le=100, description="Max records to return"),
     current_user: UUID = Depends(get_current_user),
 ):
@@ -140,7 +134,9 @@ async def get_all_my_prescriptions(
     Returns all prescriptions whose patient_id matches the JWT user.
     Supports optional ?status= filter and skip/limit pagination.
     """
-    return get_all_my_prescriptions_service(current_user, prescription_status, skip, limit)
+    return get_all_my_prescriptions_service(
+        current_user, prescription_status, skip, limit
+    )
 
 
 # PUT /api/prescriptions/update/{prescription_id}
@@ -173,3 +169,4 @@ async def delete_prescription(
 ):
     """Hard-delete a prescription. Only the owning patient can delete their own records."""
     return delete_prescription_service(prescription_id, current_user)
+

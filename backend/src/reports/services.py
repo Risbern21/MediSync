@@ -1,3 +1,4 @@
+import os
 from uuid import UUID, uuid4
 
 from bson import Binary
@@ -6,21 +7,16 @@ from fastapi import HTTPException, UploadFile, status
 from db.db import get_db
 from storage.storage import upload_bytes
 
-from .schemas import (
-    ReportCreateSchema,
-    ReportInDBSchema,
-    ReportResponseSchema,
-    ReportStatus,
-    ReportUpdateSchema,
-)
-import os
+from .schemas import (ReportCreateSchema, ReportInDBSchema,
+                      ReportResponseSchema, ReportStatus, ReportUpdateSchema)
 
-S3_BUCKET     = os.getenv("S3_BUCKET_NAME")
+S3_BUCKET = os.getenv("S3_BUCKET_NAME")
 ALLOWED_TYPES = {"application/pdf", "image/jpeg", "image/png", "image/webp"}
-COLLECTION    = "reports"
+COLLECTION = "reports"
 
 
 # ---------- helpers -----------------------------------------------------------
+
 
 def _uuid_to_bin(uid: UUID) -> Binary:
     return Binary(uid.bytes, 3)
@@ -56,7 +52,7 @@ async def _upload_to_s3(file: UploadFile, folder: str = "reports") -> str:
             detail=f"File type '{file.content_type}' not allowed. Use PDF or image.",
         )
     file_bytes = await file.read()
-    ext    = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "bin"
+    ext = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "bin"
     s3_key = f"{folder}/{uuid4()}.{ext}"
     try:
         return upload_bytes(
@@ -74,6 +70,7 @@ async def _upload_to_s3(file: UploadFile, folder: str = "reports") -> str:
 
 # ---------- services ----------------------------------------------------------
 
+
 async def add_report_service(
     payload: ReportCreateSchema,
     file: UploadFile,
@@ -81,9 +78,9 @@ async def add_report_service(
 ) -> ReportResponseSchema:
     s3_url = await _upload_to_s3(file)
 
-    db_doc   = ReportInDBSchema(**payload.model_dump(), url=s3_url)
+    db_doc = ReportInDBSchema(**payload.model_dump(), url=s3_url)
     document = db_doc.model_dump()
-    document["_id"]        = _uuid_to_bin(db_doc.id)
+    document["_id"] = _uuid_to_bin(db_doc.id)
     document["patient_id"] = _uuid_to_bin(db_doc.patient_id)
     del document["id"]
 
@@ -97,14 +94,18 @@ def get_report_by_id_service(
     report_id: UUID,
     current_user_id: UUID,
 ) -> ReportResponseSchema:
-    db  = get_db()
+    db = get_db()
     doc = db[COLLECTION].find_one({"_id": _uuid_to_bin(report_id)})
 
     if not doc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Report not found."
+        )
 
     if _bin_to_uuid(doc["patient_id"]) != current_user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied."
+        )
 
     return _doc_to_response(doc)
 
@@ -115,18 +116,12 @@ def get_all_my_reports_service(
     skip: int = 0,
     limit: int = 20,
 ) -> list[ReportResponseSchema]:
-    db    = get_db()
+    db = get_db()
     query = {"patient_id": _uuid_to_bin(current_user_id)}
     if report_status:
         query["status"] = report_status.value
 
-    docs = (
-        db[COLLECTION]
-        .find(query)
-        .sort("created_at", -1)
-        .skip(skip)
-        .limit(limit)
-    )
+    docs = db[COLLECTION].find(query).sort("created_at", -1).skip(skip).limit(limit)
 
     return [_doc_to_response(doc) for doc in docs]
 
@@ -136,18 +131,24 @@ def update_report_service(
     payload: ReportUpdateSchema,
     current_user_id: UUID,
 ) -> ReportResponseSchema:
-    db  = get_db()
+    db = get_db()
     doc = db[COLLECTION].find_one({"_id": _uuid_to_bin(report_id)})
 
     if not doc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Report not found."
+        )
 
     if _bin_to_uuid(doc["patient_id"]) != current_user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied."
+        )
 
     updates = payload.model_dump(exclude_unset=True, exclude={"url"})
     if not updates:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update."
+        )
 
     db[COLLECTION].update_one(
         {"_id": _uuid_to_bin(report_id)},
@@ -162,14 +163,19 @@ def delete_report_service(
     report_id: UUID,
     current_user_id: UUID,
 ) -> dict:
-    db  = get_db()
+    db = get_db()
     doc = db[COLLECTION].find_one({"_id": _uuid_to_bin(report_id)})
 
     if not doc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Report not found."
+        )
 
     if _bin_to_uuid(doc["patient_id"]) != current_user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied."
+        )
 
     db[COLLECTION].delete_one({"_id": _uuid_to_bin(report_id)})
     return {"detail": "Report deleted successfully."}
+
