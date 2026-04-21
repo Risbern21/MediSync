@@ -41,6 +41,7 @@ class ReportResponseSchema(BaseModel):
     patient_id: UUID
     patient_name: str
     url: Optional[str] = None
+    file_data: Optional[str] = None
     tests: List[TestSchema]
     doctor: str
     lab_no: str

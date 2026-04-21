@@ -1,6 +1,6 @@
 import os
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -8,8 +8,10 @@ from passlib.context import CryptContext
 from db.db import get_db
 
 from .models import Session, User
-from .schemas import (LoginRequest, LoginResponse, RenewAccessTokenRequest,
-                      RenewAccessTokenResponse, SigninRequest, SigninResponse)
+from .schemas import (LoginRequest, LoginResponse, MeResponse,
+                      RenewAccessTokenRequest, RenewAccessTokenResponse,
+                      SigninRequest, SigninResponse,
+                      UpdateUserDetailsSchemaRequest)
 
 # -- Utils --
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -220,3 +222,49 @@ def revoke_access_token_service(session_id: str):
     )
     if result.matched_count == 0:
         raise ValueError("Unable to revoke session")
+
+
+def update_user_details_service(
+    request: UpdateUserDetailsSchemaRequest, current_user_id
+):
+    db = get_db()
+
+    update_fields = {
+        "age": request.age,
+        "gender": request.gender,
+        "height": request.height,
+        "weight": request.weight,
+        "blood_group": request.blood_group,
+        "medical_history": request.medical_history,
+        "allergies": request.allergies,
+    }
+
+    result = db["users"].update_one(
+        {"id": str(current_user_id)}, {"$set": update_fields}
+    )
+
+    if result.matched_count == 0:
+        raise ValueError("User not found")
+
+
+def get_me_service(current_user_id) -> MeResponse:
+    db = get_db()
+
+    user_doc = db["users"].find_one({"id": str(current_user_id)})
+    if not user_doc:
+        raise ValueError("User not found")
+
+    return MeResponse(
+        id=user_doc["id"],
+        username=user_doc.get("username", ""),
+        email=user_doc.get("email", ""),
+        phone=user_doc.get("phone", ""),
+        age=user_doc.get("age"),
+        gender=user_doc.get("gender"),
+        height=user_doc.get("height"),
+        weight=user_doc.get("weight"),
+        blood_group=user_doc.get("blood_group"),
+        medical_history=user_doc.get("medical_history"),
+        allergies=user_doc.get("allergies"),
+        diseases=user_doc.get("diseases"),
+    )

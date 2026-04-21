@@ -1,11 +1,13 @@
 import os
+import urllib.parse
+import base64
 from uuid import UUID, uuid4
 
 from bson import Binary
 from fastapi import HTTPException, UploadFile, status
 
 from db.db import get_db
-from storage.storage import upload_bytes
+from storage.storage import upload_bytes, download_bytes
 
 from .schemas import (PrescriptionCreateSchema, PrescriptionInDBSchema,
                       PrescriptionResponseSchema, PrescriptionStatus,
@@ -42,12 +44,24 @@ def _bin_to_uuid(val) -> UUID:
 
 
 def _doc_to_response(doc: dict) -> PrescriptionResponseSchema:
+    file_data = None
+    if doc.get("url"):
+        try:
+            parsed = urllib.parse.urlparse(doc["url"])
+            s3_key = parsed.path.lstrip("/")
+            bucket = parsed.netloc
+            raw_bytes = download_bytes(s3_key, bucket)
+            file_data = base64.b64encode(raw_bytes).decode("utf-8")
+        except Exception as e:
+            print(f"Error fetching image for prescription {_bin_to_uuid(doc['_id'])}: {e}")
+
     return PrescriptionResponseSchema(
         id=_bin_to_uuid(doc["_id"]),
         patient_id=_bin_to_uuid(doc["patient_id"]),
         patient_name=doc["patient_name"],
         disease_date=doc["disease_date"],
         url=doc.get("url"),
+        file_data=file_data,
         medications=doc["medications"],
         status=doc["status"],
         doctors_remark=doc.get("doctors_remark"),

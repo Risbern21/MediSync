@@ -21,9 +21,6 @@ def get_db():
 
 
 def ping():
-    print(MONGO_URL)
-    print(DB_NAME)
-
     try:
         get_client().admin.command("ping")
         print(f"Connected to MongoDB at {MONGO_URL}")

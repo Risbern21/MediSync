@@ -94,33 +94,6 @@ def upload_bytes(
         raise RuntimeError(f"S3 upload failed: {e.response['Error']['Message']}")
 
 
-def upload_folder(
-    local_folder: str, s3_prefix: str = "", bucket: str = DEFAULT_BUCKET
-) -> list[str]:
-    """
-    Recursively upload all files in a local folder to S3.
-
-    Args:
-        local_folder : Path to the local directory.
-        s3_prefix    : Prefix (subfolder) inside the bucket, e.g. "uploads/2024/".
-        bucket       : Target S3 bucket.
-
-    Returns:
-        List of S3 URIs that were uploaded.
-    """
-    uris = []
-    folder = Path(local_folder)
-    for file_path in folder.rglob("*"):
-        if file_path.is_file():
-            relative = file_path.relative_to(folder)
-            s3_key = (
-                f"{s3_prefix}/{relative}".lstrip("/") if s3_prefix else str(relative)
-            )
-            uri = upload_file(str(file_path), s3_key, bucket)
-            uris.append(uri)
-    return uris
-
-
 # ── Bonus: Download helper ──────────────────────────────────────────────────────
 
 
@@ -145,16 +118,21 @@ def download_file(s3_key: str, local_path: str, bucket: str = DEFAULT_BUCKET) ->
     except ClientError as e:
         raise RuntimeError(f"S3 download failed: {e.response['Error']['Message']}")
 
+def download_bytes(s3_key: str, bucket: str = DEFAULT_BUCKET) -> bytes:
+    """
+    Download file contents from S3 as raw bytes.
 
-# ── Quick test ─────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    # --- upload a file ---
-    upload_file("./hello.txt", "test/hello.txt")
+    Args:
+        s3_key     : Key of the file in S3.
+        bucket     : Source S3 bucket.
 
-    # --- upload raw bytes ---
-    upload_bytes(b"hello world", "test/hello1.txt", content_type="text/plain")
-
-    # --- download a file ---
-    download_file("test/hello.txt", "/tmp/hello.txt")
-
-    print("S3 client ready. Uncomment a function above to test.")
+    Returns:
+        The content of the file as bytes.
+    """
+    client = get_s3_client()
+    try:
+        response = client.get_object(Bucket=bucket, Key=s3_key)
+        print(f"✅ Downloaded bytes: s3://{bucket}/{s3_key}")
+        return response["Body"].read()
+    except ClientError as e:
+        raise RuntimeError(f"S3 download bytes failed: {e.response['Error']['Message']}")

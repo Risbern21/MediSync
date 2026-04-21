@@ -2,25 +2,21 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 from bson import Binary
+from db.db import get_db
 from fastapi import HTTPException, status
 
-from db.db import get_db
-
-from .schemas import (
-    MetricCreateSchema,
-    MetricInDBSchema,
-    MetricResponseSchema,
-    MetricUpdateSchema,
-    AddValueSchema
-)
+from .schemas import (AddValueSchema, MetricCreateSchema, MetricInDBSchema,
+                      MetricResponseSchema, MetricUpdateSchema)
 
 COLLECTION = "metrics"
 
 
 # ---------- helpers -----------------------------------------------------------
 
+
 def _uuid_to_bin(uid: UUID) -> Binary:
     return Binary(uid.bytes, 3)
+
 
 def _bin_to_uuid(val) -> UUID:
     if isinstance(val, (bytes, Binary)):
@@ -29,6 +25,7 @@ def _bin_to_uuid(val) -> UUID:
             return UUID(bytes=raw)
         return UUID(raw.decode("ascii"))
     return UUID(str(val))
+
 
 def _doc_to_response(doc: dict) -> MetricResponseSchema:
     return MetricResponseSchema(
@@ -40,7 +37,9 @@ def _doc_to_response(doc: dict) -> MetricResponseSchema:
         created_at=doc["created_at"],
     )
 
+
 # ---------- services ----------------------------------------------------------
+
 
 def add_metric_service(
     payload: MetricCreateSchema,
@@ -142,12 +141,11 @@ def add_metric_value_service(
 
     new_val = {
         "value": payload.value,
-        "date": payload.date if payload.date else datetime.now()
+        "date": payload.date if payload.date else datetime.now(),
     }
 
     db[COLLECTION].update_one(
-        {"_id": _uuid_to_bin(metric_id)},
-        {"$push": {"values": new_val}}
+        {"_id": _uuid_to_bin(metric_id)}, {"$push": {"values": new_val}}
     )
 
     updated = db[COLLECTION].find_one({"_id": _uuid_to_bin(metric_id)})

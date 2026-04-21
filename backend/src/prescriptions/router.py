@@ -1,5 +1,6 @@
 import json
 import os
+import urllib.parse
 from typing import Optional
 from uuid import UUID
 
@@ -8,23 +9,36 @@ from fastapi import (APIRouter, Depends, File, Form, HTTPException, Query,
                      UploadFile, status)
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from db.db import get_db
+from storage.storage import download_bytes
+from utils.ocr import extract_text_from_bytes
+
 from .schemas import (MedicineSchema, PrescriptionCreateSchema,
                       PrescriptionResponseSchema, PrescriptionStatus,
                       PrescriptionUpdateSchema)
-from .services import (add_prescription_service, delete_prescription_service,
+from .services import (_bin_to_uuid, _uuid_to_bin, add_prescription_service,
+                       delete_prescription_service,
                        get_all_my_prescriptions_service,
                        get_prescription_by_id_service,
                        update_prescription_service)
 
 # ── JWT dependency ───────────────────────────────────────────────────────────────
-# Replace the body of get_current_user with your actual JWT decode logic.
-# The function must return the UUID that maps to patient_id in the DB.
-
 
 bearer_scheme = HTTPBearer()
 
 JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
+
+COLLECTION = "prescriptions"
+
+# Map file extensions / content-types stored in the S3 URL to MIME types
+_EXT_TO_MIME = {
+    "pdf": "application/pdf",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+    "webp": "image/webp",
+}
 
 
 async def get_current_user(
@@ -62,7 +76,6 @@ router = APIRouter(prefix="/api/prescriptions", tags=["Prescriptions"])
     summary="Create a new prescription with an attached file",
 )
 async def add_prescription(
-    # ── multipart form fields ──────────────────────────────────────────────
     patient_id: str = Form(..., description="UUID of the patient"),
     patient_name: str = Form(...),
     disease_date: str = Form(..., description="Format: YYYY-MM-DD"),
@@ -71,9 +84,7 @@ async def add_prescription(
     ),
     doctors_remark: Optional[str] = Form(None),
     prescription_status: str = Form("new"),
-    # ── file ───────────────────────────────────────────────────────────────
     file: UploadFile = File(..., description="Prescription image or PDF"),
-    # ── auth ───────────────────────────────────────────────────────────────
     current_user: UUID = Depends(get_current_user),
 ):
     """
@@ -98,6 +109,77 @@ async def add_prescription(
     )
 
     return await add_prescription_service(payload, file, current_user)
+
+
+# GET /api/prescriptions/{prescription_id}/evaluate
+@router.get(
+    "/{prescription_id}/evaluate",
+    summary="Run OCR on the prescription file stored in S3",
+    response_description="Extracted text from the prescription image / PDF",
+)
+async def evaluate_prescription(
+    prescription_id: UUID,
+    current_user: UUID = Depends(get_current_user),
+):
+    """
+    1. Fetch the prescription record from MongoDB (ownership-checked).
+    2. Download the raw file bytes from S3 using the stored URL.
+    3. Pass the bytes to Google Document AI for OCR.
+    4. Return the extracted text.
+    """
+    # ── 1. Look up the prescription ──────────────────────────────────────────
+    db = get_db()
+    doc = db[COLLECTION].find_one({"_id": _uuid_to_bin(prescription_id)})
+
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prescription not found.",
+        )
+
+    if _bin_to_uuid(doc["patient_id"]) != current_user:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied.",
+        )
+
+    s3_url: str = doc.get("url", "")
+    if not s3_url:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No file is attached to this prescription.",
+        )
+
+    # ── 2. Download file bytes from S3 ───────────────────────────────────────
+    try:
+        parsed = urllib.parse.urlparse(s3_url)
+        s3_key = parsed.path.lstrip("/")
+        bucket = parsed.netloc
+        file_bytes = download_bytes(s3_key, bucket)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to download file from S3: {exc}",
+        )
+
+    # ── 3. Detect MIME type from the S3 key extension ────────────────────────
+    ext = s3_key.rsplit(".", 1)[-1].lower() if "." in s3_key else "pdf"
+    mime_type = _EXT_TO_MIME.get(ext, "application/pdf")
+
+    # ── 4. Run OCR via Google Document AI ───────────────────────────────────
+    try:
+        extracted_text = extract_text_from_bytes(file_bytes, mime_type=mime_type)
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        )
+
+    return {
+        "prescription_id": str(prescription_id),
+        "mime_type": mime_type,
+        "extracted_text": extracted_text,
+    }
 
 
 # GET /api/prescriptions/{prescription_id}
@@ -169,4 +251,3 @@ async def delete_prescription(
 ):
     """Hard-delete a prescription. Only the owning patient can delete their own records."""
     return delete_prescription_service(prescription_id, current_user)
-

@@ -64,6 +64,7 @@ class PrescriptionResponseSchema(BaseModel):
     patient_name: str
     disease_date: str
     url: Optional[str] = None  # S3 URL; None until file is uploaded
+    file_data: Optional[str] = None
     medications: List[MedicineSchema]
     status: PrescriptionStatus
     doctors_remark: Optional[str] = None
