@@ -1,0 +1,349 @@
+/* ─── Dashboard Layout ─── */
+.dashboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  animation: fadeUp 0.4s var(--ease-out) both;
+}
+
+.dashboard-greeting {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+/* ─── Stats Grid ─── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.stats-grid--3col {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.stat-card {
+  background: var(--surface-glass-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  transition: all var(--transition);
+  position: relative;
+  overflow: hidden;
+  animation: fadeUp 0.45s var(--ease-out) both;
+}
+
+/* Stat card stagger delays */
+.stat-card:nth-child(1) { animation-delay: 0.05s; }
+.stat-card:nth-child(2) { animation-delay: 0.1s;  }
+.stat-card:nth-child(3) { animation-delay: 0.15s; }
+.stat-card:nth-child(4) { animation-delay: 0.2s;  }
+
+/* Top shine line */
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.9), transparent);
+}
+
+.stat-card:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-3px);
+  border-color: rgba(255,255,255,0.8);
+}
+
+.stat-card-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform var(--transition-spring);
+}
+
+.stat-card:hover .stat-card-icon { transform: scale(1.08) rotate(-3deg); }
+
+.stat-card-body { min-width: 0; }
+
+.stat-card-value {
+  font-size: 1.625rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+  margin-bottom: 4px;
+  letter-spacing: -0.025em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stat-card-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat-card-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ─── Single column layout ─── */
+.dashboard-single {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  width: 100%;
+}
+
+.dashboard-single .card { animation: fadeUp 0.5s var(--ease-out) both; }
+.dashboard-single .card:nth-child(1) { animation-delay: 0.25s; }
+.dashboard-single .card:nth-child(2) { animation-delay: 0.35s; }
+.dashboard-single .card:nth-child(3) { animation-delay: 0.45s; }
+
+/* ─── Alert List ─── */
+.alert-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* ─── Timeline ─── */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 14px;
+  bottom: 14px;
+  width: 2px;
+  background: linear-gradient(180deg, var(--primary-alpha), var(--border), transparent);
+}
+
+.timeline-item {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  cursor: pointer;
+  transition: all var(--transition);
+  border-radius: var(--radius);
+  position: relative;
+}
+.timeline-item:hover { background: rgba(37,99,235,0.04); }
+
+.timeline-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  border: 3px solid var(--surface);
+  box-shadow: 0 0 0 2px var(--primary-alpha), var(--shadow-primary-sm);
+  flex-shrink: 0;
+  margin-top: 1px;
+  position: relative;
+  z-index: 1;
+  transition: transform var(--transition-spring);
+}
+
+.timeline-item:hover .timeline-dot { transform: scale(1.25); }
+
+.timeline-content { flex: 1; min-width: 0; }
+
+.timeline-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.timeline-patient { font-size: 0.9rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
+.timeline-date    { font-size: 0.73rem; color: var(--text-muted); flex-shrink: 0; }
+
+.timeline-status-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.timeline-doctor {
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.timeline-tests {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.timeline-test-tag {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(0,0,0,0.04);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.timeline-test-tag--critical { background: var(--danger-light);  color: var(--danger-dark);  border-color: rgba(239,68,68,0.3);  }
+.timeline-test-tag--high,
+.timeline-test-tag--low      { background: var(--warning-light); color: var(--warning-dark); border-color: rgba(245,158,11,0.3); }
+
+/* ─── Metrics Stack ─── */
+.metrics-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.metric-card { padding: var(--space-4) var(--space-5); }
+
+.metric-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.metric-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.metric-value {
+  font-size: 1.875rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.metric-unit {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.metric-delta        { font-size: 0.73rem; color: var(--text-muted); margin-top: 3px; }
+.metric-delta--up    { color: var(--danger); }
+.metric-delta--down  { color: var(--success); }
+.metric-date         { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+.metric-empty        { font-size: 0.875rem; color: var(--text-muted); margin-top: var(--space-2); }
+
+/* ─── Patient Summary ─── */
+.patient-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.patient-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: var(--radius-full);
+  background: var(--gradient-primary);
+  color: white;
+  font-size: 1.375rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-3);
+  box-shadow: var(--shadow-primary);
+  letter-spacing: -0.01em;
+}
+
+.patient-name  { font-size: 1.0625rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; letter-spacing: -0.015em; }
+.patient-email { font-size: 0.8rem; color: var(--text-muted); margin-bottom: var(--space-4); }
+
+.patient-meta-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  text-align: left;
+}
+
+.patient-meta-item {
+  background: rgba(0,0,0,0.03);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+}
+
+.patient-meta-key {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 2px;
+}
+
+.patient-meta-val {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+/* ─── Summary Card ─── */
+.summary-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.75;
+  white-space: pre-wrap;
+  background: rgba(37,99,235,0.03);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--primary-alpha);
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 768px) {
+  .stats-grid,
+  .stats-grid--3col { grid-template-columns: repeat(2, 1fr); }
+  .dashboard-single { max-width: 100%; }
+}
+
+@media (max-width: 520px) {
+  .stats-grid,
+  .stats-grid--3col { grid-template-columns: 1fr; }
+  .dashboard-header { flex-direction: column; }
+}
